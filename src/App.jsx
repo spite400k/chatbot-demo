@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import './assets/styles/style.css';
 import { Answerslist, Chats } from './components/index';
@@ -7,48 +7,36 @@ import { db } from './firebase/index';
 import { collection, query, where, getDocs } from "firebase/firestore";
 
 
-export default class App extends React.Component {
+const App = () => {
 
-  constructor(props) {
-    super(props);
-    this.state = {
-      answers: [],
-      chats: [],
-      currentId: "init",
-      dataset: {},
-      open: false
-    }
+  const [answers, setAnswers] = useState([]);
+  const [chats, setChats] = useState([]);
+  const [currentId, setCurrentId] = useState(["init"]);
+  const [dataset, setDataset] = useState({});
+  const [open, setOpen] = useState(false);
 
-    this.selectAnswer = this.selectAnswer.bind(this);
-    this.handleClickOpen = this.handleClickOpen.bind(this);
-    this.handleClose = this.handleClose.bind(this);
+  const displayNextQuestion = (nextQuestionId, nextDataset) => {
 
-  }
-
-  displayNextQuestion = (nextQuestionId) => {
-    const chats = this.state.chats;
-    chats.push({
-      text: this.state.dataset[nextQuestionId].question,
+    addChats({
+      text: nextDataset.question,
       type: 'question'
     })
 
-    this.setState({
-      answers: this.state.dataset[nextQuestionId].answers,
-      chats: chats,
-      currentId: nextQuestionId,
-    })
+    setAnswers(nextDataset.answers);
+    setCurrentId(nextQuestionId);
   }
 
-  selectAnswer = (selectAnswer, nextQuestionId) => {
-    const chats = this.state.chats; //state直接更新NG。このように一回変数化して取り出すこと
+  const selectAnswer = (selectAnswer, nextQuestionId) => {
+    // const chats = chats; //state直接更新NG。このように一回変数化して取り出すこと
 
     switch (true) {
       case (nextQuestionId === 'init'):
         //Reactは２回レンダリングするので一度初期化する
         setTimeout(() => {
-          chats.length = 0;
-          this.displayNextQuestion(nextQuestionId)
+          displayNextQuestion(nextQuestionId, dataset[nextQuestionId]);
         }, 500);
+        // setChats([]);
+        // chats.length = 0;
         break;
 
       case (/^https:*/.test(nextQuestionId)):
@@ -59,42 +47,40 @@ export default class App extends React.Component {
         break;
 
       case (nextQuestionId === 'contact'):
-        this.handleClickOpen();
+        handleClickOpen();
         break;
 
 
       default:
-
-        chats.push({
+        addChats({
           text: selectAnswer,
           type: 'answer'
         });//chatsは配列なのでpushする
 
-        this.setState({
-          chats: chats
-        })
-
-        setTimeout(() => this.displayNextQuestion(nextQuestionId), 1000);
+        setTimeout(() => displayNextQuestion(nextQuestionId, dataset[nextQuestionId]), 1000);
         break;
     }
   }
 
-  handleClickOpen = () => {
-    this.setState({ open: true });
-  };
-  handleClose = () => {
-    this.setState({ open: false });
-  };
-
-  initDataset = (dataset) => {
-    this.setState({ dataset: dataset });
+  const addChats = (chat) => {
+    setChats(prevChats => {
+      return [...prevChats, chat] // 前回のstateを自動で受け取れる。prevChatsに対して、chatを追加する
+    })
   };
 
+  const handleClickOpen = () => {
+    setOpen(true);
+  };
+  const handleClose = useCallback(() => {
+    setOpen(false);
+  },)[setOpen];
 
-  componentDidMount() {
+  useEffect(() => {
     (
       async () => {
-        const dataset = this.state.dataset;
+        setChats([]);
+        const initDataset = {};
+
         const q = query(collection(db, "questions"));
 
 
@@ -102,32 +88,32 @@ export default class App extends React.Component {
         querySnapshot.forEach(doc => {
           const id = doc.id;
           const data = doc.data();
-          dataset[id] = data;
+          initDataset[id] = data;
         })
 
-        this.initDataset(dataset);
-        const initAnswer = "";
-        this.selectAnswer(initAnswer, this.state.currentId)
+        setDataset(initDataset);
+        displayNextQuestion(currentId, initDataset[currentId]);
+
       }
     )();
-  };
+  }, []);//レンダー初回に実行するので第２引数のブランク配列をいれる
 
-  componentDidUpdate() {
+  useEffect(() => {
     const scrollArea = document.getElementById('scroll-area')
     if (scrollArea) {
       scrollArea.scrollTop = scrollArea.scrollHeight
     }
-  }
+  });//レンダーごとに実行するので第２引数省略
 
-  render() {
-    return (
-      <section className='c-section'>
-        <div className='c-box'>
-          <Chats chats={this.state.chats} />
-          <Answerslist answers={this.state.answers} select={this.selectAnswer} />
-          <FormDialog open={this.state.open} handleClose={this.handleClose} />
-        </div>
-      </section>
-    );
-  }
-}
+  return (
+    <section className='c-section'>
+      <div className='c-box'>
+        <Chats chats={chats} />
+        <Answerslist answers={answers} select={selectAnswer} />
+        <FormDialog open={open} handleClose={handleClose} />
+      </div>
+    </section>
+  );
+};
+
+export default App;
