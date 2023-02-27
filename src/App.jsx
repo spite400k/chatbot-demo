@@ -1,5 +1,4 @@
 import React from 'react';
-import logo from './logo.svg';
 import './App.css';
 import defaultDataset from './dataset';
 import './assets/styles/style.css';
@@ -49,7 +48,7 @@ export default class App extends React.Component {
           this.displayNextQuestion(nextQuestionId)
         }, 500);
         break;
-      
+
       case (/^https:*/.test(nextQuestionId)):
         const a = document.createElement('a');
         a.href = nextQuestionId;
@@ -57,7 +56,7 @@ export default class App extends React.Component {
         a.click();
         break;
 
-      case (nextQuestionId==='contact'):
+      case (nextQuestionId === 'contact'):
         this.handleClickOpen();
         break;
 
